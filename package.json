@@ -13,7 +13,7 @@
   },
   "keywords": [],
   "author": {
-    "name": "黄昏下的舞者",
+    "name": "Will0",
     "email": "15879398507@163.com"
   },
   "license": "MIT",
@@ -34,9 +34,16 @@
     "eslint": "^8.57.1",
     "eslint-plugin-import": "^2.32.0",
     "typescript": "~4.5.4",
-    "vite": "^5.4.21"
+    "vite": "^5.4.21",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3"
   },
   "dependencies": {
-    "electron-squirrel-startup": "^1.0.1"
+    "antd": "^6.0.1",
+    "electron-squirrel-startup": "^1.0.1",
+    "exceljs": "^4.4.0",
+    "lodash": "^4.17.21",
+    "react": "^19.2.1",
+    "react-dom": "^19.2.1"
   }
 }
