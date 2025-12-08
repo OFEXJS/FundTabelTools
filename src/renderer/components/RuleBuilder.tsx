@@ -162,7 +162,7 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
 
     const total = evaluateCellRefs(refs, filesData, excludes);
     onCalculate(total);
-    message.success(`计算完成！结果：${total.toLocaleString()}`);
+    // message.success(`计算完成！结果：${total.toLocaleString()}`);
   };
 
   return (
@@ -277,7 +277,7 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
             </Space>
 
             {/* 排除规则折叠面板 */}
-            <Collapse ghost>
+            <Collapse ghost activeKey={rule.enableExclude ? "exclude" : ""}>
               <Panel
                 header={
                   <Space>

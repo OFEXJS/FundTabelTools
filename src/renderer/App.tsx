@@ -1,20 +1,11 @@
 import React, { useState } from "react";
-import {
-  Layout,
-  Tabs,
-  theme,
-  message,
-  Typography,
-  Card,
-  Statistic,
-  Divider,
-  Tag,
-} from "antd";
+import { Layout, Tabs, theme, message, Typography, Divider, Tag } from "antd";
 import FilePool from "./components/FilePool";
 import RuleBuilder from "./components/RuleBuilder";
 import { ExcelFileData } from "./utils/xlsxParser";
 import { createRoot } from "react-dom/client";
 import emptyIcon from "../assets/empty.svg";
+import ResultPanel from "./components/ResultPanel";
 
 const { Header, Content, Sider } = Layout;
 const { Title, Text } = Typography;
@@ -104,7 +95,7 @@ const App: React.FC = () => {
           fontWeight: "bold",
         }}
       >
-        指指点点-报表统计助手
+        指指点点
       </Header>
 
       <Layout>
@@ -203,46 +194,8 @@ const App: React.FC = () => {
 
                       {/* 超大结果展示区（固定在底部） */}
                       <Divider style={{ margin: "16px 0" }} />
-                      <div style={{ padding: "0 24px 24px" }}>
-                        <Card
-                          styles={{
-                            body: { padding: 32, textAlign: "center" },
-                          }}
-                        >
-                          <Statistic
-                            title={
-                              <Title
-                                level={3}
-                                style={{ margin: 0, color: "#666" }}
-                              >
-                                当前文件计算结果
-                              </Title>
-                            }
-                            value={result}
-                            precision={2}
-                            styles={{
-                              content: {
-                                fontSize: 48,
-                                color: result >= 0 ? colorPrimary : "#cf1322",
-                                fontWeight: "bold",
-                              },
-                            }}
-                            suffix={
-                              result !== 0 && (
-                                <span style={{ fontSize: 24, color: "#aaa" }}>
-                                  {" "}
-                                  元
-                                </span>
-                              )
-                            }
-                          />
-                          {result === 0 && (
-                            <Text type="secondary" style={{ fontSize: 18 }}>
-                              点击「计算结果」按钮开始计算
-                            </Text>
-                          )}
-                        </Card>
-                      </div>
+                      {/* 结果展示区 */}
+                      <ResultPanel result={result} />
                     </div>
                   ),
                 };

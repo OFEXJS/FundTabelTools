@@ -2,6 +2,9 @@
 import React from "react";
 import { TreeSelect } from "antd";
 import type { ExcelFileData } from "../utils/xlsxParser";
+import { Typography } from "antd";
+
+const { Text } = Typography;
 
 interface ExcelTreeProps {
   filesData: Map<string, ExcelFileData>;
@@ -17,11 +20,19 @@ const ExcelTree: React.FC<ExcelTreeProps> = ({
   placeholder,
 }) => {
   const treeData = Array.from(filesData.values()).map((file) => ({
-    title: file.name,
+    title: (
+      <Text ellipsis={true} style={{ width: 150 }} title={file.name}>
+        {file.name}
+      </Text>
+    ),
     value: file.id,
     selectable: false, // 禁用选文件，只选 sheet
     children: file.sheets.map((sheet) => ({
-      title: sheet.name,
+      title: (
+        <Text ellipsis={true} style={{ width: 130 }} title={sheet.name}>
+          {sheet.name}
+        </Text>
+      ),
       value: `${file.id}|${sheet.name}`,
     })),
   }));
