@@ -58,54 +58,106 @@ export const parseExcelWithXLSX = (file: File): Promise<ExcelFileData> => {
   });
 };
 
-// 数值提取工具（支持单元格、整行、整列）
+export interface CellRef {
+  type: "cell" | "row" | "column" | "custom";
+  sheetName: string;
+  fileId: string;
+  fileName: string;
+  ref: string;
+  startRow?: number;
+  endRow?: number;
+  value?: number;
+}
+
+interface ExcludeRule {
+  fileId: string;
+  sheetName: string;
+  excludeColumn: string;
+  excludeKeyword: string;
+  excludeMode: "exclude" | "include";
+}
+
 export const evaluateCellRefs = (
   refs: CellRef[],
-  filesData: Map<string, ExcelFileData>
+  filesData: Map<string, ExcelFileData>,
+  excludes: ExcludeRule[] = [] // 新增排除规则
 ): number => {
   let total = 0;
 
   refs.forEach((ref) => {
+    if (ref.type === "custom") {
+      total += ref.value || 0;
+      return;
+    }
+
     const fileData = filesData.get(ref.fileId);
     if (!fileData) return;
 
     const sheet = fileData.sheets.find((s) => s.name === ref.sheetName);
     if (!sheet || !sheet.data.length) return;
 
-    const data = sheet.data;
+    let data = sheet.data;
 
+    // 应用排除规则（只针对当前 sheet）
+    const sheetExcludes = excludes.filter(
+      (e) => e.fileId === ref.fileId && e.sheetName === ref.sheetName
+    );
+    if (sheetExcludes.length > 0) {
+      data = filterRowsByExcludes(data, sheetExcludes);
+    }
+
+    // 计算
     if (ref.type === "cell" && ref.ref.match(/^[A-Z]+\d+$/i)) {
       const { row, col } = XLSX.utils.decode_cell(ref.ref.toUpperCase());
-      const value = data[row]?.[col];
-      total += parseNumber(value);
+      total += parseNumber(data[row]?.[col]);
     } else if (ref.type === "row" && /^\d+$/.test(ref.ref)) {
       const rowIdx = parseInt(ref.ref) - 1;
-      if (data[rowIdx]) {
-        data[rowIdx].forEach((v) => (total += parseNumber(v)));
-      }
+      data[rowIdx]?.forEach((v) => (total += parseNumber(v)));
     } else if (ref.type === "column" && ref.ref.match(/^[A-Z]+$/i)) {
       const colIdx = XLSX.utils.decode_col(ref.ref.toUpperCase());
-      data.forEach((row) => {
-        total += parseNumber(row[colIdx]);
-      });
+      const start = (ref.startRow ?? 1) - 1;
+      let end = ref.endRow ? ref.endRow - 1 : findLastNonEmptyRow(data, colIdx);
+
+      for (let r = start; r <= end; r++) {
+        total += parseNumber(data[r]?.[colIdx]);
+      }
     }
   });
 
   return total;
 };
 
-// 安全提取数字
-const parseNumber = (val: any): number => {
-  if (typeof val === "number") return val;
-  if (val === null || val === undefined || val === "") return 0;
-  const num = parseFloat(String(val).replace(/[^0-9.-]/g, ""));
-  return isNaN(num) ? 0 : num;
+// 排除/筛选行
+const filterRowsByExcludes = (
+  data: any[][],
+  excludes: ExcludeRule[]
+): any[][] => {
+  let filtered = [...data];
+
+  excludes.forEach((ex) => {
+    const colIdx = XLSX.utils.decode_col(ex.excludeColumn.toUpperCase());
+    const keyword = ex.excludeKeyword.toLowerCase();
+
+    filtered = filtered.filter((row) => {
+      const cellVal = String(row[colIdx] ?? "").toLowerCase();
+      const matches = cellVal.includes(keyword);
+      return ex.excludeMode === "include" ? matches : !matches;
+    });
+  });
+
+  return filtered;
 };
 
-export interface CellRef {
-  type: "cell" | "row" | "column";
-  sheetName: string;
-  fileId: string;
-  fileName: string;
-  ref: string; // A1 或 5 或 B
-}
+// 找列最后非空行
+const findLastNonEmptyRow = (data: any[][], colIdx: number): number => {
+  for (let r = data.length - 1; r >= 0; r--) {
+    if (data[r]?.[colIdx] != null && data[r][colIdx] !== "") return r;
+  }
+  return data.length - 1; // 如果全空，默认到最后
+};
+
+const parseNumber = (val: any): number => {
+  if (typeof val === "number") return val;
+  const num = parseFloat(String(val || "0").replace(/[^0-9.-]/g, ""));
+  return isNaN(num) ? 0 : num;
+};

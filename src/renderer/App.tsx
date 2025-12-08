@@ -1,12 +1,23 @@
-// src/renderer/App.tsx
 import React, { useState } from "react";
-import { Layout, Tabs, theme, message } from "antd";
+import {
+  Layout,
+  Tabs,
+  theme,
+  message,
+  Typography,
+  Card,
+  Statistic,
+  Divider,
+  Tag,
+} from "antd";
 import FilePool from "./components/FilePool";
 import RuleBuilder from "./components/RuleBuilder";
 import { ExcelFileData } from "./utils/xlsxParser";
 import { createRoot } from "react-dom/client";
+import emptyIcon from "../assets/empty.svg";
 
 const { Header, Content, Sider } = Layout;
+const { Title, Text } = Typography;
 
 interface CalcTab {
   key: string;
@@ -21,7 +32,7 @@ const App: React.FC = () => {
   const [activeKey, setActiveKey] = useState<string>("");
 
   const {
-    token: { colorBgContainer },
+    token: { colorBgContainer, colorPrimary },
   } = theme.useToken();
 
   const handleFilesLoaded = (newFiles: ExcelFileData[]) => {
@@ -36,7 +47,6 @@ const App: React.FC = () => {
     map.delete(fileId);
     setFiles(map);
 
-    // 同时关闭相关的 Tab
     const remainingTabs = activeTabs.filter((t) => t.fileId !== fileId);
     setActiveTabs(remainingTabs);
     if (activeKey === fileId && remainingTabs.length > 0) {
@@ -44,7 +54,6 @@ const App: React.FC = () => {
     }
   };
 
-  // 关键：点击文件打开 Tab
   const openFileTab = (file: ExcelFileData) => {
     const existing = activeTabs.find((t) => t.fileId === file.id);
     if (existing) {
@@ -63,9 +72,7 @@ const App: React.FC = () => {
     setActiveKey(file.id);
   };
 
-  const onTabChange = (key: string) => {
-    setActiveKey(key);
-  };
+  const onTabChange = (key: string) => setActiveKey(key);
 
   const onTabEdit = (targetKey: any, action: "add" | "remove") => {
     if (action === "remove") {
@@ -90,38 +97,57 @@ const App: React.FC = () => {
       <Header
         style={{
           color: "white",
-          fontSize: 20,
+          fontSize: 22,
           padding: "0 24px",
           display: "flex",
           alignItems: "center",
+          fontWeight: "bold",
         }}
       >
-        ExcelCalcPro - 多文件并行计算工具
+        指指点点-报表统计助手
       </Header>
+
       <Layout>
-        <Sider width="25%" style={{ background: colorBgContainer }}>
+        <Sider
+          width="30%"
+          style={{ background: colorBgContainer, padding: "12px 8px" }}
+        >
           <FilePool
             files={Array.from(files.values())}
             onFilesLoaded={handleFilesLoaded}
             onRemoveFile={handleRemoveFile}
-            onFileClick={openFileTab} // 新增：点击打开 Tab
+            onFileClick={openFileTab}
           />
         </Sider>
-        <Content style={{ padding: 12, background: colorBgContainer }}>
+
+        <Content
+          style={{
+            background: colorBgContainer,
+            padding: 0,
+            display: "flex",
+            flexDirection: "column",
+          }}
+        >
           {activeTabs.length === 0 ? (
             <div
               style={{
-                height: "100%",
+                flex: 1,
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
                 flexDirection: "column",
-                color: "#999",
+                color: "#aaa",
               }}
             >
-              <div style={{ fontSize: 64, marginBottom: 24 }}>📊</div>
-              <div style={{ fontSize: 20 }}>点击左侧文件开始计算</div>
-              <div style={{ marginTop: 8 }}>支持同时打开多个文件并行计算</div>
+              <div>
+                <img src={emptyIcon} alt="empty" />
+              </div>
+              <Title level={3} type="secondary">
+                从左侧文件列表点击开始计算
+              </Title>
+              <Text type="secondary">
+                支持多文件并行计算 + 高级筛选 + 自定义值
+              </Text>
             </div>
           ) : (
             <Tabs
@@ -130,33 +156,95 @@ const App: React.FC = () => {
               activeKey={activeKey}
               onChange={onTabChange}
               onEdit={onTabEdit}
+              tabBarGutter={8}
+              style={{ flex: 1, display: "flex", flexDirection: "column" }}
               items={activeTabs.map((tab) => {
                 const file = files.get(tab.fileId);
+                const result = tab.result;
+
                 return {
                   key: tab.key,
                   label: (
                     <span>
-                      {file?.name || "未知文件"}
-                      {tab.result > 0 && (
-                        <span
-                          style={{
-                            marginLeft: 8,
-                            color: "#52c41a",
-                            fontWeight: "bold",
-                          }}
-                        >
-                          = {tab.result.toLocaleString()}
-                        </span>
+                      <Text ellipsis={{ tooltip: file?.name }}>
+                        {file?.name || "加载中..."}
+                      </Text>
+                      {result !== 0 && (
+                        <Tag color="green" style={{ marginLeft: 8 }}>
+                          {result.toLocaleString()}
+                        </Tag>
                       )}
                     </span>
                   ),
-                  children: file ? (
-                    <RuleBuilder
-                      filesData={files}
-                      currentFileId={file.id}
-                      onCalculate={(result) => updateTabResult(file.id, result)}
-                    />
-                  ) : null,
+                  children: (
+                    <div
+                      style={{
+                        height: "100%",
+                        display: "flex",
+                        flexDirection: "column",
+                      }}
+                    >
+                      {/* 规则构建区 */}
+                      <div
+                        style={{
+                          flex: 1,
+                          padding: "16px 24px",
+                          overflow: "auto",
+                        }}
+                      >
+                        {file && (
+                          <RuleBuilder
+                            filesData={files}
+                            currentFileId={file.id}
+                            onCalculate={(res) => updateTabResult(file.id, res)}
+                          />
+                        )}
+                      </div>
+
+                      {/* 超大结果展示区（固定在底部） */}
+                      <Divider style={{ margin: "16px 0" }} />
+                      <div style={{ padding: "0 24px 24px" }}>
+                        <Card
+                          styles={{
+                            body: { padding: 32, textAlign: "center" },
+                          }}
+                        >
+                          <Statistic
+                            title={
+                              <Title
+                                level={3}
+                                style={{ margin: 0, color: "#666" }}
+                              >
+                                当前文件计算结果
+                              </Title>
+                            }
+                            value={result}
+                            precision={2}
+                            styles={{
+                              content: {
+                                fontSize: 48,
+                                color: result >= 0 ? colorPrimary : "#cf1322",
+                                fontWeight: "bold",
+                              },
+                            }}
+                            suffix={
+                              result !== 0 && (
+                                <span style={{ fontSize: 24, color: "#aaa" }}>
+                                  {" "}
+                                  元
+                                </span>
+                              )
+                            }
+                          />
+                          {result === 0 && (
+                            <Text type="secondary" style={{ fontSize: 18 }}>
+                              点击「计算结果」按钮开始计算
+                            </Text>
+                          )}
+                        </Card>
+                      </div>
+                    </div>
+                  ),
                 };
               })}
             />

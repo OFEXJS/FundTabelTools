@@ -130,6 +130,7 @@ const FilePool: React.FC<FilePoolProps> = ({
     <div
       style={{
         height: "100%",
+        minWidth: 300,
         display: "flex",
         flexDirection: "column",
         padding: 12,
@@ -235,7 +236,7 @@ const FilePool: React.FC<FilePoolProps> = ({
                         {file.sheets.length > 3 && (
                           <Badge
                             count={`+${file.sheets.length - 3}`}
-                            style={{ background: "#e6f7ff" }}
+                            style={{ background: "#f0f2f5", color: "#666" }}
                           />
                         )}
                       </Space>

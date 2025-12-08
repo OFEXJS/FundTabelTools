@@ -1,31 +1,62 @@
+// src/renderer/components/RuleBuilder.tsx —— 终极美观层级版
 import React, { useState } from "react";
-import { Button, Select, Input, Space, Card, Tag, message } from "antd";
-import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
+import {
+  Button,
+  Select,
+  Input,
+  Space,
+  Card,
+  Tag,
+  message,
+  Switch,
+  InputNumber,
+  Collapse,
+  Form,
+} from "antd";
+import {
+  PlusOutlined,
+  DeleteOutlined,
+  FilterOutlined,
+} from "@ant-design/icons";
 import ExcelTree from "./ExcelTree";
-import { evaluateCellRefs, CellRef } from "../utils/xlsxParser";
+import { evaluateCellRefs } from "../utils/xlsxParser";
 import type { ExcelFileData } from "../utils/xlsxParser";
 
+const { Panel } = Collapse;
 const { Option } = Select;
+
+interface ExcludeCondition {
+  key: string;
+  column: string;
+  keyword: string;
+  mode: "exclude" | "include";
+}
 
 interface RuleItem {
   key: string;
   logic: "AND" | "OR";
   fileId: string;
   sheetName: string;
-  type: "cell" | "row" | "column";
-  ref: string; // A1 或 row:5 或 col:B
+  type: "cell" | "row" | "column" | "custom";
+  ref: string;
+  startRow?: number;
+  endRow?: number;
+  value?: number;
+  description?: string;
+  enableExclude: boolean;
+  excludeConditions: ExcludeCondition[];
 }
 
 interface RuleBuilderProps {
   filesData: Map<string, ExcelFileData>;
-  currentFileId: string; // 新增：当前激活的文件
+  currentFileId?: string;
   onCalculate: (result: number) => void;
 }
 
 const RuleBuilder: React.FC<RuleBuilderProps> = ({
   filesData,
-  onCalculate,
   currentFileId,
+  onCalculate,
 }) => {
   const [rules, setRules] = useState<RuleItem[]>([]);
 
@@ -35,35 +66,59 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
       {
         key: Date.now().toString(),
         logic: rules.length === 0 ? "AND" : "AND",
-        fileId: "",
+        fileId: currentFileId || "",
         sheetName: "",
         type: "cell",
         ref: "",
+        enableExclude: false,
+        excludeConditions: [],
       },
     ]);
   };
 
-  const removeRule = (key: string) => {
+  const removeRule = (key: string) =>
     setRules(rules.filter((r) => r.key !== key));
-  };
 
-  const updateRule = (key: string, field: keyof RuleItem, value: any) => {
+  const updateRule = (
+    key: string,
+    field: keyof RuleItem | `excludeConditions`,
+    value: any
+  ) => {
     setRules(rules.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
   };
 
-  const parseTreeValue = (
-    val: string
-  ): { fileId: string; sheetName: string } => {
-    const [fileId, sheetName] = val.split("|");
-    return { fileId, sheetName };
-  };
-
-  const handleTreeChange = (key: string, value: string) => {
-    const { fileId, sheetName } = parseTreeValue(value);
+  const addExcludeCondition = (ruleKey: string) => {
     setRules(
       rules.map((r) => {
-        if (r.key === key) {
-          return { ...r, fileId, sheetName };
+        if (r.key === ruleKey) {
+          return {
+            ...r,
+            excludeConditions: [
+              ...r.excludeConditions,
+              {
+                key: Date.now().toString(),
+                column: "",
+                keyword: "",
+                mode: "exclude",
+              },
+            ],
+          };
+        }
+        return r;
+      })
+    );
+  };
+
+  const removeExcludeCondition = (ruleKey: string, condKey: string) => {
+    setRules(
+      rules.map((r) => {
+        if (r.key === ruleKey) {
+          return {
+            ...r,
+            excludeConditions: r.excludeConditions.filter(
+              (c) => c.key !== condKey
+            ),
+          };
         }
         return r;
       })
@@ -71,116 +126,315 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
   };
 
   const calculate = () => {
-    if (rules.length === 0) {
-      message.warning("请至少添加一条规则");
-      return;
-    }
+    if (rules.length === 0) return message.warning("请至少添加一条规则");
 
-    const validRefs: CellRef[] = [];
+    const refs: any[] = [];
+    const excludes: any[] = [];
 
-    for (const rule of rules) {
-      if (!rule.fileId || !rule.sheetName || !rule.ref) continue;
+    rules.forEach((rule) => {
+      if (!rule.sheetName) return;
 
-      const file = filesData.get(rule.fileId);
-      if (!file) continue;
-
-      validRefs.push({
+      const ref: any = {
         type: rule.type,
         sheetName: rule.sheetName,
         fileId: rule.fileId,
-        fileName: file.name,
-        ref:
-          rule.type === "cell"
-            ? rule.ref.toUpperCase()
-            : rule.type === "row"
-              ? `row:${rule.ref}`
-              : `col:${rule.ref.toUpperCase()}`,
-      });
-    }
+        fileName: filesData.get(rule.fileId)?.name || "",
+        ref: rule.type === "custom" ? "custom" : rule.ref,
+        startRow: rule.startRow,
+        endRow: rule.endRow,
+        value: rule.value,
+      };
 
-    if (validRefs.length === 0) {
-      message.warning("没有有效的引用");
-      return;
-    }
+      if (rule.enableExclude && rule.excludeConditions.length > 0) {
+        rule.excludeConditions.forEach((cond) => {
+          excludes.push({
+            fileId: rule.fileId,
+            sheetName: rule.sheetName,
+            excludeColumn: cond.column,
+            excludeKeyword: cond.keyword,
+            excludeMode: cond.mode,
+          });
+        });
+      }
 
-    const total = evaluateCellRefs(validRefs, filesData);
+      refs.push(ref);
+    });
+
+    const total = evaluateCellRefs(refs, filesData, excludes);
     onCalculate(total);
-    message.success("计算完成！");
+    message.success(`计算完成！结果：${total.toLocaleString()}`);
   };
 
   return (
-    <Space
-      orientation="vertical"
-      size="large"
-      style={{ width: "100%", padding: 12 }}
-    >
+    <Space orientation="vertical" size="large" style={{ width: "100%" }}>
       {rules.map((rule, index) => (
-        <Card key={rule.key} size="small">
-          <Space align="center" size="middle" style={{ width: "100%" }}>
-            {index > 0 && (
-              <Select
-                value={rule.logic}
-                onChange={(v) => updateRule(rule.key, "logic", v)}
-                style={{ width: 80 }}
-              >
-                <Option value="AND">AND</Option>
-                <Option value="OR">OR</Option>
-              </Select>
-            )}
-            {index === 0 && <span style={{ width: 80 }} />}
-
-            <ExcelTree
-              filesData={filesData}
-              value={
-                currentFileId
-                  ? `${currentFileId}|${rule.sheetName || ""}`
-                  : undefined
-              }
-              onChange={(v) => handleTreeChange(rule.key, v as string)}
-              placeholder="选择文件和工作表"
-            />
-
-            <Select
-              value={rule.type}
-              onChange={(v) => updateRule(rule.key, "type", v)}
-              style={{ width: 120 }}
-            >
-              <Option value="cell">单元格</Option>
-              <Option value="row">整行</Option>
-              <Option value="column">整列</Option>
-            </Select>
-
-            <Input
-              placeholder={
-                rule.type === "cell"
-                  ? "如 A1 或 B10"
-                  : rule.type === "row"
-                    ? "输入行号，如 5"
-                    : "输入列字母，如 B"
-              }
-              value={rule.ref}
-              onChange={(e) => updateRule(rule.key, "ref", e.target.value)}
-              style={{ width: 140 }}
-            />
-
+        <Card
+          key={rule.key}
+          size="small"
+          title={
+            <Space>
+              {index > 0 && (
+                <Select
+                  value={rule.logic}
+                  onChange={(v) => updateRule(rule.key, "logic", v)}
+                  size="small"
+                >
+                  <Option value="AND">AND</Option>
+                  <Option value="OR">OR</Option>
+                </Select>
+              )}
+              <Tag color="blue">主规则 {index + 1}</Tag>
+            </Space>
+          }
+          extra={
             <Button
               danger
+              size="small"
               icon={<DeleteOutlined />}
               onClick={() => removeRule(rule.key)}
             />
+          }
+        >
+          <Space orientation="vertical" style={{ width: "100%" }} size="middle">
+            {/* 主规则区域 */}
+            <Space wrap>
+              <ExcelTree
+                filesData={filesData}
+                value={
+                  rule.fileId && rule.sheetName
+                    ? `${rule.fileId}|${rule.sheetName}`
+                    : undefined
+                }
+                onChange={(v) => {
+                  const [fileId, sheetName] = (v as string).split("|");
+                  updateRule(rule.key, "fileId", fileId);
+                  updateRule(rule.key, "sheetName", sheetName);
+                }}
+                placeholder="选择工作表"
+              />
+
+              <Select
+                value={rule.type}
+                onChange={(v) => updateRule(rule.key, "type", v)}
+                style={{ width: 120 }}
+              >
+                <Option value="cell">单元格</Option>
+                <Option value="row">整行</Option>
+                <Option value="column">整列（范围）</Option>
+                <Option value="custom">自定义值</Option>
+              </Select>
+
+              {rule.type !== "custom" ? (
+                <Input
+                  placeholder={
+                    rule.type === "cell"
+                      ? "A1"
+                      : rule.type === "row"
+                        ? "5"
+                        : "B"
+                  }
+                  value={rule.ref}
+                  onChange={(e) => updateRule(rule.key, "ref", e.target.value)}
+                  style={{ width: 100 }}
+                />
+              ) : (
+                <Space>
+                  <Input
+                    placeholder="说明（如：固定费用）"
+                    value={rule.description}
+                    onChange={(e) =>
+                      updateRule(rule.key, "description", e.target.value)
+                    }
+                  />
+                  <InputNumber
+                    value={rule.value}
+                    onChange={(v) => updateRule(rule.key, "value", v as number)}
+                  />
+                </Space>
+              )}
+
+              {rule.type === "column" && (
+                <Space>
+                  <InputNumber
+                    min={1}
+                    placeholder="起始行"
+                    value={rule.startRow}
+                    onChange={(v) =>
+                      updateRule(rule.key, "startRow", v as number)
+                    }
+                  />
+                  <span>~</span>
+                  <InputNumber
+                    min={1}
+                    placeholder="结束行（留空=最后）"
+                    value={rule.endRow}
+                    onChange={(v) =>
+                      updateRule(rule.key, "endRow", v as number)
+                    }
+                  />
+                </Space>
+              )}
+            </Space>
+
+            {/* 排除规则折叠面板 */}
+            <Collapse ghost>
+              <Panel
+                header={
+                  <Space>
+                    <Switch
+                      checkedChildren="已启用筛选"
+                      unCheckedChildren="点击启用筛选/排除"
+                      checked={rule.enableExclude}
+                      onChange={(v) => updateRule(rule.key, "enableExclude", v)}
+                    />
+                    <FilterOutlined
+                      style={{ color: rule.enableExclude ? "#1890ff" : "#aaa" }}
+                    />
+                    <span
+                      style={{ color: rule.enableExclude ? "#1890ff" : "#999" }}
+                    >
+                      {rule.enableExclude
+                        ? `已启用 ${rule.excludeConditions.length} 条筛选条件`
+                        : "添加筛选条件（如排除“测试”行）"}
+                    </span>
+                  </Space>
+                }
+                key="exclude"
+                showArrow={false}
+              >
+                <Space
+                  orientation="vertical"
+                  style={{ width: "100%", marginTop: 8 }}
+                  size="small"
+                >
+                  {rule.excludeConditions.map((cond, i) => (
+                    <Card
+                      key={cond.key}
+                      size="small"
+                      style={{ background: "#f9f9f9" }}
+                    >
+                      <Space>
+                        <span>{i + 1}.</span>
+                        <Select
+                          value={cond.mode}
+                          onChange={(v) => {
+                            setRules(
+                              rules.map((r) => {
+                                if (r.key === rule.key) {
+                                  return {
+                                    ...r,
+                                    excludeConditions: r.excludeConditions.map(
+                                      (c) =>
+                                        c.key === cond.key
+                                          ? { ...c, mode: v }
+                                          : c
+                                    ),
+                                  };
+                                }
+                                return r;
+                              })
+                            );
+                          }}
+                        >
+                          <Option value="exclude">排除包含</Option>
+                          <Option value="include">仅保留包含</Option>
+                        </Select>
+                        <Input
+                          placeholder="列（如 A）"
+                          value={cond.column}
+                          onChange={(e) => {
+                            setRules(
+                              rules.map((r) => {
+                                if (r.key === rule.key) {
+                                  return {
+                                    ...r,
+                                    excludeConditions: r.excludeConditions.map(
+                                      (c) =>
+                                        c.key === cond.key
+                                          ? {
+                                              ...c,
+                                              column:
+                                                e.target.value.toUpperCase(),
+                                            }
+                                          : c
+                                    ),
+                                  };
+                                }
+                                return r;
+                              })
+                            );
+                          }}
+                          style={{ width: 80 }}
+                        />
+                        <Input
+                          placeholder="关键字"
+                          value={cond.keyword}
+                          onChange={(e) => {
+                            setRules(
+                              rules.map((r) => {
+                                if (r.key === rule.key) {
+                                  return {
+                                    ...r,
+                                    excludeConditions: r.excludeConditions.map(
+                                      (c) =>
+                                        c.key === cond.key
+                                          ? { ...c, keyword: e.target.value }
+                                          : c
+                                    ),
+                                  };
+                                }
+                                return r;
+                              })
+                            );
+                          }}
+                        />
+                        <Button
+                          danger
+                          size="small"
+                          icon={<DeleteOutlined />}
+                          onClick={() =>
+                            removeExcludeCondition(rule.key, cond.key)
+                          }
+                        />
+                      </Space>
+                    </Card>
+                  ))}
+                  <Button
+                    type="dashed"
+                    size="small"
+                    block
+                    icon={<PlusOutlined />}
+                    onClick={() => addExcludeCondition(rule.key)}
+                  >
+                    添加筛选条件
+                  </Button>
+                </Space>
+              </Panel>
+            </Collapse>
           </Space>
         </Card>
       ))}
 
-      <div>
-        <Button type="dashed" onClick={addRule} block icon={<PlusOutlined />}>
-          添加规则
+      <Space orientation="vertical" size={20} style={{ width: "100%" }}>
+        <Button
+          type="dashed"
+          onClick={addRule}
+          block
+          size="large"
+          icon={<PlusOutlined />}
+        >
+          添加新规则
         </Button>
-      </div>
-
-      <Button type="primary" size="large" block onClick={calculate}>
-        开始计算
-      </Button>
+        <Button
+          type="primary"
+          size="large"
+          onClick={calculate}
+          block
+          disabled={rules.length === 0}
+        >
+          计算结果
+        </Button>
+      </Space>
     </Space>
   );
 };
