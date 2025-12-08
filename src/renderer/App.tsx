@@ -114,7 +114,7 @@ const App: React.FC = () => {
         <Content
           style={{
             background: colorBgContainer,
-            padding: 0,
+            padding: 12,
             display: "flex",
             flexDirection: "column",
           }}

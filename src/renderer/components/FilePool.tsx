@@ -70,6 +70,12 @@ const FilePool: React.FC<FilePoolProps> = ({
       if (file.status !== "done") return;
 
       const rawFile = file.originFileObj || file;
+
+      // 防御性判断（防止拖入文件夹、快捷方式等）
+      if (!rawFile || !rawFile.name || typeof rawFile.name !== "string") {
+        return;
+      }
+
       if (rawFile) batchFiles.current.push(rawFile);
 
       // 防抖 200ms 批量处理
@@ -109,14 +115,16 @@ const FilePool: React.FC<FilePoolProps> = ({
 
     onDrop: (e: React.DragEvent) => {
       e.preventDefault();
-      const dropped = Array.from(e.dataTransfer.files) as File[];
-      dropped.forEach((f) => {
-        if (f.name.match(/\.(xlsx|xls)$/i)) {
-          batchFiles.current.push(f);
-        }
-      });
-      // 手动触发一次处理
-      uploadProps.onChange({ file: { status: "done" }, fileList: [] });
+      // 移除手动调用onChange的代码，因为Ant Design的Upload组件会自动触发onChange事件
+      // 避免文件被处理两次
+      // const dropped = Array.from(e.dataTransfer.files) as File[];
+      // dropped.forEach((f) => {
+      //   if (f.name.match(/\.(xlsx|xls)$/i)) {
+      //     batchFiles.current.push(f);
+      //   }
+      // });
+      // // 手动触发一次处理
+      // uploadProps.onChange({ file: { status: "done" }, fileList: [] });
     },
   };
 

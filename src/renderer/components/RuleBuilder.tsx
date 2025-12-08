@@ -12,11 +12,13 @@ import {
   InputNumber,
   Collapse,
   Form,
+  Popconfirm,
 } from "antd";
 import {
   PlusOutlined,
   DeleteOutlined,
   FilterOutlined,
+  ClearOutlined,
 } from "@ant-design/icons";
 import ExcelTree from "./ExcelTree";
 import { evaluateCellRefs } from "../utils/xlsxParser";
@@ -86,6 +88,14 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
   ) => {
     setRules(rules.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
   };
+
+  // 计算当前所有规则中已使用的工作表（fileId|sheetName）
+  const usedSheets = new Set<string>();
+  rules.forEach((rule) => {
+    if (rule.fileId && rule.sheetName) {
+      usedSheets.add(`${rule.fileId}|${rule.sheetName}`);
+    }
+  });
 
   const addExcludeCondition = (ruleKey: string) => {
     setRules(
@@ -211,6 +221,7 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
                   updateRule(rule.key, "sheetName", sheetName);
                 }}
                 placeholder="选择工作表"
+                usedSheets={usedSheets}
               />
 
               <Select
@@ -434,6 +445,22 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
         >
           计算结果
         </Button>
+        {/* 新增：重置按钮 */}
+        <Popconfirm
+          title="确定要清空所有规则吗？"
+          description="此操作不可恢复"
+          onConfirm={() => {
+            setRules([]);
+            message.success("已清空所有规则");
+          }}
+          okText="确定清空"
+          cancelText="取消"
+          okButtonProps={{ danger: true }}
+        >
+          <Button danger icon={<ClearOutlined />} style={{ flex: 1 }}>
+            重置所有规则
+          </Button>
+        </Popconfirm>
       </Space>
     </Space>
   );
