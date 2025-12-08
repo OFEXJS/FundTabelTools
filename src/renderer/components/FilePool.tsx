@@ -1,115 +1,253 @@
-import React from "react";
-import { Button, Upload, message, Tree, Space, Popconfirm } from "antd";
-import type { UploadProps } from "antd";
+// src/renderer/components/FilePool.tsx —— 支持同名文件自动重命名版
+import React, { useRef } from "react";
 import {
-  InboxOutlined,
+  Card,
+  Space,
+  Badge,
+  Typography,
+  Button,
+  Upload,
+  message,
+  Grid,
+} from "antd";
+import {
   DeleteOutlined,
+  FileExcelOutlined,
   UploadOutlined,
 } from "@ant-design/icons";
-import { parseExcelToJson, ExcelFileData } from "../utils/excelParser";
+import { parseExcelWithXLSX, ExcelFileData } from "../utils/xlsxParser";
 
-const { Dragger } = Upload;
+const { useBreakpoint } = Grid;
+const { Text } = Typography;
 
 interface FilePoolProps {
   files: ExcelFileData[];
   onFilesLoaded: (files: ExcelFileData[]) => void;
   onRemoveFile: (fileId: string) => void;
+  onFileClick: (file: ExcelFileData) => void;
 }
 
 const FilePool: React.FC<FilePoolProps> = ({
   files,
   onFilesLoaded,
   onRemoveFile,
+  onFileClick,
 }) => {
-  const handleUpload: UploadProps["customRequest"] = async (options) => {
-    const { file } = options;
-    try {
-      const parsed = await parseExcelToJson((file as any).path);
-      onFilesLoaded([parsed]);
-    } catch (err) {
-      message.error(`解析失败：${(file as any).name}`);
+  const screens = useBreakpoint();
+
+  // 用 ref 收集本次批量上传的文件（防抖）
+  const batchFiles = useRef<File[]>([]);
+  const timer = useRef<NodeJS.Timeout | null>(null);
+
+  // 生成不重复的显示名称：销售数据.xlsx → 销售数据-1.xlsx → 销售数据-2.xlsx
+  const generateUniqueName = (originalName: string): string => {
+    const existingNames = new Set(files.map((f) => f.name));
+    if (!existingNames.has(originalName)) return originalName;
+
+    const ext = originalName.includes(".")
+      ? originalName.slice(originalName.lastIndexOf("."))
+      : "";
+    const baseName = originalName
+      .replace(/\s*-\d+$/, "")
+      .replace(new RegExp(`${ext}$`), "");
+
+    let index = 1;
+    let newName = `${baseName}-${index}${ext}`;
+    while (existingNames.has(newName)) {
+      index++;
+      newName = `${baseName}-${index}${ext}`;
     }
+    return newName;
   };
 
-  const handleSelectFiles = async () => {
-    if (!window.electronAPI?.openFileDialog) {
-      message.error("主进程通信未就绪，请稍后重试");
-      return;
-    }
+  const uploadProps = {
+    multiple: true,
+    accept: ".xlsx,.xls",
+    showUploadList: false,
+    customRequest: ({ onSuccess }: any) => setTimeout(() => onSuccess("ok"), 0),
+    onChange: async (info: any) => {
+      const { file } = info;
+      if (file.status !== "done") return;
 
-    // 获取文件路径
-    const filePaths: string[] = await window.electronAPI.openFileDialog();
-    if (filePaths.length === 0) return;
+      const rawFile = file.originFileObj || file;
+      if (rawFile) batchFiles.current.push(rawFile);
 
-    // 读取Excel文件内容
-    for (const path of filePaths) {
-      try {
-        const data = await window.electronAPI.readExcel(path);
-        console.log("data：", data);
-        // const parsed = await parseExcelToJson((file as any).path);
-        // onFilesLoaded([parsed]);
-      } catch (err) {
-        message.error(`解析失败：${path.split(/[\\/]/).pop()}`);
-      }
-    }
+      // 防抖 200ms 批量处理
+      if (timer.current) clearTimeout(timer.current);
+      timer.current = setTimeout(async () => {
+        if (batchFiles.current.length === 0) return;
+
+        const toParse = [...batchFiles.current];
+        batchFiles.current = [];
+
+        const parsedFiles: ExcelFileData[] = [];
+        let successCount = 0;
+
+        for (const rawFile of toParse) {
+          if (!rawFile.name.match(/\.(xlsx|xls)$/i)) {
+            message.warning(`${rawFile.name} 不是 Excel 文件，已跳过`);
+            continue;
+          }
+
+          try {
+            const parsed = await parseExcelWithXLSX(rawFile);
+            // 关键：自动重命名显示名
+            parsed.name = generateUniqueName(parsed.name);
+            parsedFiles.push(parsed);
+            successCount++;
+          } catch (err: any) {
+            message.error(`解析失败：${rawFile.name}`);
+          }
+        }
+
+        if (successCount > 0) {
+          onFilesLoaded(parsedFiles);
+          // message.success(`成功添加 ${successCount} 个文件（同名自动重命名）`);
+        }
+      }, 200);
+    },
+
+    onDrop: (e: React.DragEvent) => {
+      e.preventDefault();
+      const dropped = Array.from(e.dataTransfer.files) as File[];
+      dropped.forEach((f) => {
+        if (f.name.match(/\.(xlsx|xls)$/i)) {
+          batchFiles.current.push(f);
+        }
+      });
+      // 手动触发一次处理
+      uploadProps.onChange({ file: { status: "done" }, fileList: [] });
+    },
   };
 
-  const treeData = files.map((f) => ({
-    title: (
-      <Space>
-        <span>{f.name}</span>
-        <Popconfirm
-          title="确定删除此文件？"
-          onConfirm={() => onRemoveFile(f.id)}
-          okText="删除"
-          cancelText="取消"
-        >
-          <DeleteOutlined style={{ color: "red", cursor: "pointer" }} />
-        </Popconfirm>
-      </Space>
-    ),
-    key: f.id,
-    children: f.sheets.map((s) => ({
-      title: s.name,
-      key: `${f.id}-${s.name}`,
-      isLeaf: true,
-    })),
-  }));
+  const getColumns = () => {
+    if (screens.xxl || screens.xl) return 3;
+    if (screens.lg || screens.md) return 2;
+    return 1;
+  };
 
   return (
-    <Space direction="vertical" size="middle" style={{ width: "100%" }}>
-      <div style={{ textAlign: "center" }}>
-        <Button
-          type="primary"
-          size="large"
-          icon={<UploadOutlined />}
-          onClick={handleSelectFiles}
-        >
-          选择 Excel 文件
-        </Button>
-        <div style={{ marginTop: 8, color: "#888", fontSize: 12 }}>
-          支持多选、批量上传
-        </div>
-      </div>
-
-      {/* <Dragger
-        multiple
-        customRequest={handleUpload}
-        showUploadList={false}
-        accept=".xlsx,.xls"
+    <div
+      style={{
+        height: "100%",
+        display: "flex",
+        flexDirection: "column",
+        padding: 12,
+      }}
+    >
+      {/* 上传区域 */}
+      <Upload.Dragger
+        {...uploadProps}
+        style={{ marginBottom: 16, padding: 32 }}
       >
-        <p className="ant-upload-drag-icon">
-          <InboxOutlined />
-        </p>
-        <p className="ant-upload-text">点击或拖拽 Excel 文件到此区域</p>
-      </Dragger> */}
+        <Space orientation="vertical" size="middle" align="center">
+          <UploadOutlined style={{ fontSize: 48, color: "#1890ff" }} />
+          <div>
+            <Text strong style={{ fontSize: 18 }}>
+              点击或拖拽文件到此处
+            </Text>
+            <br />
+            <Text type="secondary">支持重复上传，同名文件自动重命名</Text>
+          </div>
+        </Space>
+      </Upload.Dragger>
 
-      <div style={{ maxHeight: "70vh", overflow: "auto" }}>
-        {treeData.length > 0 && (
-          <Tree defaultExpandAll treeData={treeData} showLine />
+      <div style={{ flex: 1, overflow: "auto", padding: "0 8px" }}>
+        {files.length === 0 ? (
+          <div style={{ textAlign: "center", marginTop: 100, color: "#ccc" }}>
+            <FileExcelOutlined style={{ fontSize: 80, marginBottom: 16 }} />
+            <br />
+            <Text type="secondary" strong>
+              暂无文件
+            </Text>
+          </div>
+        ) : (
+          <div
+            style={{
+              width: "100%",
+              padding: "12px 0",
+            }}
+          >
+            {files.map((file) => (
+              <Card
+                key={file.id}
+                hoverable
+                onClick={() => onFileClick(file)}
+                style={{
+                  borderRadius: 12,
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                  cursor: "pointer",
+                  transition: "all 0.3s",
+                  marginBottom: 12,
+                }}
+                styles={{ body: { padding: 16 } }}
+                actions={[
+                  <Button
+                    type="text"
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onRemoveFile(file.id);
+                    }}
+                  >
+                    删除
+                  </Button>,
+                ]}
+              >
+                <Card.Meta
+                  avatar={
+                    <div
+                      style={{
+                        width: 48,
+                        height: 48,
+                        background: "linear-gradient(135deg, #52c41a, #389e0d)",
+                        borderRadius: 12,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <FileExcelOutlined
+                        style={{ fontSize: 28, color: "white" }}
+                      />
+                    </div>
+                  }
+                  title={
+                    <Text strong ellipsis={{ tooltip: file.name }}>
+                      {file.name}
+                    </Text>
+                  }
+                  description={
+                    <Space orientation="vertical" size={2}>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        {file.sheets.length} 个工作表
+                      </Text>
+                      <Space wrap>
+                        {file.sheets.slice(0, 3).map((s) => (
+                          <Badge
+                            key={s.name}
+                            count={s.name}
+                            style={{ background: "#f0f2f5", color: "#666" }}
+                          />
+                        ))}
+                        {file.sheets.length > 3 && (
+                          <Badge
+                            count={`+${file.sheets.length - 3}`}
+                            style={{ background: "#e6f7ff" }}
+                          />
+                        )}
+                      </Space>
+                    </Space>
+                  }
+                />
+              </Card>
+            ))}
+          </div>
         )}
       </div>
-    </Space>
+    </div>
   );
 };
 

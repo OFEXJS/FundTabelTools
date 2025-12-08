@@ -2,8 +2,8 @@ import React, { useState } from "react";
 import { Button, Select, Input, Space, Card, Tag, message } from "antd";
 import { PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import ExcelTree from "./ExcelTree";
-import { evaluateCellRefs, CellRef } from "../utils/excelParser";
-import type { ExcelFileData } from "../utils/excelParser";
+import { evaluateCellRefs, CellRef } from "../utils/xlsxParser";
+import type { ExcelFileData } from "../utils/xlsxParser";
 
 const { Option } = Select;
 
@@ -18,12 +18,14 @@ interface RuleItem {
 
 interface RuleBuilderProps {
   filesData: Map<string, ExcelFileData>;
+  currentFileId: string; // 新增：当前激活的文件
   onCalculate: (result: number) => void;
 }
 
 const RuleBuilder: React.FC<RuleBuilderProps> = ({
   filesData,
   onCalculate,
+  currentFileId,
 }) => {
   const [rules, setRules] = useState<RuleItem[]>([]);
 
@@ -91,8 +93,8 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
           rule.type === "cell"
             ? rule.ref.toUpperCase()
             : rule.type === "row"
-            ? `row:${rule.ref}`
-            : `col:${rule.ref.toUpperCase()}`,
+              ? `row:${rule.ref}`
+              : `col:${rule.ref.toUpperCase()}`,
       });
     }
 
@@ -107,7 +109,11 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
   };
 
   return (
-    <Space direction="vertical" size="large" style={{ width: "100%" }}>
+    <Space
+      orientation="vertical"
+      size="large"
+      style={{ width: "100%", padding: 12 }}
+    >
       {rules.map((rule, index) => (
         <Card key={rule.key} size="small">
           <Space align="center" size="middle" style={{ width: "100%" }}>
@@ -126,8 +132,8 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
             <ExcelTree
               filesData={filesData}
               value={
-                rule.fileId && rule.sheetName
-                  ? `${rule.fileId}|${rule.sheetName}`
+                currentFileId
+                  ? `${currentFileId}|${rule.sheetName || ""}`
                   : undefined
               }
               onChange={(v) => handleTreeChange(rule.key, v as string)}
@@ -149,8 +155,8 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
                 rule.type === "cell"
                   ? "如 A1 或 B10"
                   : rule.type === "row"
-                  ? "输入行号，如 5"
-                  : "输入列字母，如 B"
+                    ? "输入行号，如 5"
+                    : "输入列字母，如 B"
               }
               value={rule.ref}
               onChange={(e) => updateRule(rule.key, "ref", e.target.value)}

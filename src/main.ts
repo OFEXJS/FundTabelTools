@@ -1,8 +1,6 @@
 import { app, BrowserWindow, ipcMain, dialog } from "electron";
 import path from "node:path";
 import started from "electron-squirrel-startup";
-import ExcelJS from "exceljs";
-import { parseExcelToJson } from "./renderer/utils/excelParser";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -50,22 +48,7 @@ ipcMain.handle("dialog:openFile", async () => {
 });
 
 // 读取Excel文件内容
-ipcMain.handle("dialog:readExcel", async (event, filePath) => {
-  const workbook = new ExcelJS.Workbook();
-  try {
-    // 读取Excel文件内容
-    await workbook.xlsx.readFile(filePath);
-    // 获取第一个工作表
-    const worksheet = workbook.worksheets[0];
-    //! 获取不到文件
-    console.log("json：", worksheet);
-    // 返回JSON数据
-    return [];
-  } catch (error) {
-    console.error("读取Excel文件时出错:", error);
-    return [];
-  }
-});
+ipcMain.handle("dialog:readExcel", async (event, filePath) => {});
 
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits

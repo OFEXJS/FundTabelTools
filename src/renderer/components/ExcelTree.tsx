@@ -1,6 +1,6 @@
 import React from "react";
 import { TreeSelect } from "antd";
-import type { ExcelFileData } from "../utils/excelParser";
+import type { ExcelFileData } from "../utils/xlsxParser";
 
 interface ExcelTreeProps {
   filesData: Map<string, ExcelFileData>;
