@@ -9,6 +9,8 @@ import {
 } from "electron";
 import path from "node:path";
 import started from "electron-squirrel-startup";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
 
 // Handle creating/removing shortcuts on Windows when installing/uninstalling.
 if (started) {
@@ -16,26 +18,32 @@ if (started) {
 }
 
 let tray: Tray | null = null;
-// 窗口图标
-const iconPath = {
-  win32: "public/icons/icon.ico", // Windows 图标
-  darwin: "public/icons/icon.icns", // macOS 图标
-  linux: "public/icons/icon.png", // Linux 图标
-  // 其他平台默认使用 PNG 图标
-  aix: "public/icons/icon.png",
-  freebsd: "public/icons/icon.png",
-  openbsd: "public/icons/icon.png",
-  sunos: "public/icons/icon.png",
-  android: "public/icons/icon.png",
-  haiku: "public/icons/icon.png",
-  cygwin: "public/icons/icon.png",
-  netbsd: "public/icons/icon.png",
-};
+// 解决打包后路径问题
+const __filename = fileURLToPath(import.meta.url);
+const __dirname2 = dirname(__filename);
+
+// 获取正确的图标路径
+function getIconPath() {
+  // 对于开发环境和生产环境使用不同的路径解析方式
+  const isDev = !app.isPackaged;
+  const basePath = isDev
+    ? path.join(process.cwd(), "public", "icons")
+    : path.join(__dirname2, "public", "icons");
+
+  const iconExt =
+    process.platform === "win32"
+      ? "icon.ico"
+      : process.platform === "darwin"
+        ? "icon.icns"
+        : "icon.png";
+
+  return path.join(basePath, iconExt);
+}
 
 const createWindow = () => {
   // Create the browser window.
   const mainWindow = new BrowserWindow({
-    icon: path.join(__dirname, iconPath[process.platform]),
+    icon: getIconPath(),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
     },
@@ -52,14 +60,14 @@ const createWindow = () => {
     );
   }
 
-  // Open the DevTools.
-  mainWindow.webContents.openDevTools();
+  // 只在开发环境打开开发者工具，生产环境自动关闭
+  if (!app.isPackaged) {
+    mainWindow.webContents.openDevTools();
+  }
 };
 
 function createTray() {
-  const icon = nativeImage.createFromPath(
-    path.join(__dirname, iconPath[process.platform])
-  );
+  const icon = nativeImage.createFromPath(getIconPath());
   tray = new Tray(icon.resize({ width: 16, height: 16 })); // Windows 托盘推荐 16x16
 
   const contextMenu = Menu.buildFromTemplate([
