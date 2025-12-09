@@ -8,6 +8,7 @@ import {
   Popconfirm,
   Typography,
   Space,
+  Flex,
 } from "antd";
 import { ClockCircleOutlined, ClearOutlined } from "@ant-design/icons";
 import { clearHistory } from "../utils/history";
@@ -70,32 +71,32 @@ const HistoryPanel: React.FC = () => {
         />
       ) : (
         <Timeline style={{ marginTop: 16 }}>
-          {history?.map((item, i) => (
-            <Timeline.Item key={i} color="green">
-              <div
-                style={{
-                  background: "white",
-                  padding: "12px 16px",
-                  borderRadius: 8,
-                  boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
-                }}
-              >
-                <Text style={{ color: "#888", fontSize: 12 }}>{item.time}</Text>
-                <br />
-                <Space>
-                  <Text strong ellipsis={true} style={{ maxWidth: 120 }}>
-                    {item.fileName}
-                  </Text>
-                  <Text strong ellipsis={true} style={{ maxWidth: 120 }}>
-                    {item.sheetName}
-                  </Text>
-                  <Text strong ellipsis={true} style={{ maxWidth: 120 }}>
-                    - {item.result.toLocaleString()}
-                  </Text>
-                </Space>
-              </div>
-            </Timeline.Item>
-          ))}
+          {history?.map((item, i) => {
+            const value = `${item.sheetName}：${item.result}`
+            return (
+              <Timeline.Item key={i} color="green">
+                <div
+                  style={{
+                    background: "white",
+                    padding: "12px 16px",
+                    borderRadius: 8,
+                    boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+                  }}
+                >
+                  <Text style={{ color: "#888", fontSize: 12 }}>{item.time}</Text>
+                  <br />
+                  <Flex>
+                    <Text strong ellipsis={{ tooltip: item.fileName }} style={{ flex: 2 }}>
+                      {item.fileName}
+                    </Text>
+                    <Text strong ellipsis={{ tooltip: value }} style={{ flex: 1 }}>
+                      {value}
+                    </Text>
+                  </Flex>
+                </div>
+              </Timeline.Item>
+            )
+          })}
         </Timeline>
       )}
     </Card>

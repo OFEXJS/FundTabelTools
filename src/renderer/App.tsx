@@ -128,19 +128,6 @@ const App: React.FC = () => {
         return tab;
       })
     );
-
-    // 同时更新历史记录中的名称
-    const tab = activeTabs.find((t) => t.fileId === fileId);
-    if (tab && tab.result !== 0) {
-      const file = files.get(fileId);
-      if (file) {
-        addHistory({
-          result: tab.result,
-          sheetName: newName,
-          fileName: file.name,
-        });
-      }
-    }
   };
 
   return (
