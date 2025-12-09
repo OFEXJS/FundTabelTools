@@ -154,7 +154,6 @@ const FilePool: React.FC<FilePoolProps> = ({
         minWidth: 300,
         display: "flex",
         flexDirection: "column",
-        padding: 12,
       }}
     >
       {/* 上传区域 */}
@@ -175,7 +174,7 @@ const FilePool: React.FC<FilePoolProps> = ({
       </Upload.Dragger>
 
       {files.length > 0 && (
-        <div style={{ paddingTop: 8, textAlign: "right" }}>
+        <div style={{ padding: "8px 0", textAlign: "right" }}>
           <Popconfirm
             title="确定清空所有文件吗？"
             description="此操作不可恢复，所有相关 Tabs 将关闭"
@@ -213,18 +212,30 @@ const FilePool: React.FC<FilePoolProps> = ({
                 hoverable
                 onClick={() => onFileClick(file)}
                 style={{
-                  borderRadius: 12,
-                  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                  cursor: "pointer",
-                  transition: "all 0.3s",
-                  marginBottom: 12,
+                  borderRadius: 16,
+                  boxShadow:
+                    "0 8px 24px rgba(0,0,0,0.08), 0 0 0 1px rgba(0,0,0,0.03)",
+                  transition: "all 0.3s cubic-bezier(0.4, 0, 0.2, 1)",
+                  marginBottom: 16,
+                  overflow: "hidden",
+                  background:
+                    "linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%)",
+                  position: "relative",
                 }}
-                styles={{ body: { padding: 16 } }}
+                styles={{
+                  body: {
+                    background:
+                      "linear-gradient(135deg, rgba(0, 183, 255, 0.1) 0%, rgba(128, 0, 255, 0.1) 40%, rgba(0, 191, 255, 0.1) 100%)",
+                    padding: 20,
+                    borderBottom: "none",
+                  },
+                }}
                 actions={[
                   <Button
                     type="text"
                     danger
                     size="small"
+                    className="hover:bg-red-50 transition-colors"
                     icon={<DeleteOutlined />}
                     onClick={(e) => {
                       e.stopPropagation();

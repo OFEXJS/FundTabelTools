@@ -147,21 +147,51 @@ const App: React.FC = () => {
     <Layout style={{ height: "100vh" }}>
       <Header
         style={{
+          background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
           color: "white",
           fontSize: 22,
           padding: "0 24px",
           display: "flex",
           alignItems: "center",
           fontWeight: "bold",
+          boxShadow: "0 4px 20px rgba(102, 126, 234, 0.3)",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
-        指指点点
+        <span style={{ position: "relative", zIndex: 1 }}>指指点点</span>
+        {/* 添加装饰性元素增强未来感 */}
+        <div
+          style={{
+            position: "absolute",
+            top: "50%",
+            right: "10%",
+            width: "100px",
+            height: "100px",
+            background: "rgba(255, 255, 255, 0.1)",
+            borderRadius: "50%",
+            transform: "translateY(-50%)",
+            filter: "blur(20px)",
+          }}
+        />
+        <div
+          style={{
+            position: "absolute",
+            top: "20%",
+            right: "20%",
+            width: "50px",
+            height: "50px",
+            background: "rgba(255, 255, 255, 0.08)",
+            borderRadius: "50%",
+            filter: "blur(15px)",
+          }}
+        />
       </Header>
 
       <Layout>
         <Sider
           width="25%"
-          style={{ background: colorBgContainer, padding: "12px 8px" }}
+          style={{ background: colorBgContainer, padding: 12 }}
         >
           <FilePool
             files={Array.from(files.values())}
@@ -175,7 +205,7 @@ const App: React.FC = () => {
         <Content
           style={{
             background: colorBgContainer,
-            padding: 12,
+            padding: "12px 12px 12px 0",
             display: "flex",
             flexDirection: "column",
           }}
@@ -238,23 +268,15 @@ const App: React.FC = () => {
                         }}
                       >
                         {/* 规则构建区 */}
-                        <div
-                          style={{
-                            flex: 1,
-                            padding: "16px 24px",
-                            overflow: "auto",
-                          }}
-                        >
-                          {file && (
-                            <RuleBuilder
-                              filesData={files}
-                              currentFileId={file.id}
-                              onCalculate={(res) =>
-                                updateTabResult(file.id, res, tab.sheetName)
-                              }
-                            />
-                          )}
-                        </div>
+                        {file && (
+                          <RuleBuilder
+                            filesData={files}
+                            currentFileId={file.id}
+                            onCalculate={(res) =>
+                              updateTabResult(file.id, res, tab.sheetName)
+                            }
+                          />
+                        )}
 
                         {/* 超大结果展示区（固定在底部） */}
                         <Divider style={{ margin: "16px 0" }} />

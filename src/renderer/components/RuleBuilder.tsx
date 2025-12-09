@@ -13,6 +13,7 @@ import {
   Collapse,
   Form,
   Popconfirm,
+  ConfigProvider,
 } from "antd";
 import {
   PlusOutlined,
@@ -23,9 +24,36 @@ import {
 import ExcelTree from "./ExcelTree";
 import { evaluateCellRefs } from "../utils/xlsxParser";
 import type { ExcelFileData } from "../utils/xlsxParser";
+import { createStyles } from "antd-style";
 
 const { Panel } = Collapse;
 const { Option } = Select;
+
+const useStyle = createStyles(({ prefixCls, css }) => ({
+  linearGradientButton: css`
+    &.${prefixCls}-btn-primary:not([disabled]):not(
+        .${prefixCls}-btn-dangerous
+      ) {
+      > span {
+        position: relative;
+      }
+
+      &::before {
+        content: "";
+        background: linear-gradient(135deg, #6253e1, #04befe);
+        position: absolute;
+        inset: -1px;
+        opacity: 1;
+        transition: all 0.3s;
+        border-radius: inherit;
+      }
+
+      &:hover::before {
+        opacity: 0;
+      }
+    }
+  `,
+}));
 
 interface ExcludeCondition {
   key: string;
@@ -61,6 +89,8 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
   onCalculate,
 }) => {
   const [rules, setRules] = useState<RuleItem[]>([]);
+
+  const { styles } = useStyle();
 
   const addRule = () => {
     setRules([
@@ -453,45 +483,50 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
           ))}
         </Space>
       </div>
-
-      <Space orientation="vertical" size={20} style={{ width: "100%" }}>
-        <Button
-          type="dashed"
-          onClick={addRule}
-          block
-          size="large"
-          icon={<PlusOutlined />}
-        >
-          添加新规则
-        </Button>
-        <Button
-          type="primary"
-          size="large"
-          onClick={calculate}
-          block
-          disabled={rules.length === 0}
-        >
-          计算结果
-        </Button>
-        {/* 新增：重置按钮 */}
-        <Popconfirm
-          title="确定要清空所有规则吗？"
-          description="此操作不可恢复"
-          onConfirm={() => {
-            setRules([]);
-            // 清空计算值
-            onCalculate(0);
-            message.success("已清空所有规则");
-          }}
-          okText="确定清空"
-          cancelText="取消"
-          okButtonProps={{ danger: true }}
-        >
-          <Button danger icon={<ClearOutlined />} style={{ flex: 1 }}>
-            重置所有规则
+      <ConfigProvider
+        button={{
+          className: styles.linearGradientButton,
+        }}
+      >
+        <Space orientation="vertical" size={20} style={{ width: "100%" }}>
+          <Button
+            type="dashed"
+            onClick={addRule}
+            block
+            size="large"
+            icon={<PlusOutlined />}
+          >
+            添加新规则
           </Button>
-        </Popconfirm>
-      </Space>
+          <Button
+            type="primary"
+            size="large"
+            onClick={calculate}
+            block
+            disabled={rules.length === 0}
+          >
+            计算结果
+          </Button>
+          {/* 新增：重置按钮 */}
+          <Popconfirm
+            title="确定要清空所有规则吗？"
+            description="此操作不可恢复"
+            onConfirm={() => {
+              setRules([]);
+              // 清空计算值
+              onCalculate(0);
+              message.success("已清空所有规则");
+            }}
+            okText="确定清空"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+          >
+            <Button danger icon={<ClearOutlined />} style={{ flex: 1 }}>
+              重置所有规则
+            </Button>
+          </Popconfirm>
+        </Space>
+      </ConfigProvider>
     </Space>
   );
 };
