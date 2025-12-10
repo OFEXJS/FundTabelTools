@@ -45,6 +45,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ collapsed, onToggle }) => {
         style={{
           opacity: collapsed ? 0 : 1,
           visibility: collapsed ? "hidden" : "visible",
+          display: collapsed ? "none" : "block",
           transition: "all 0.3s ease",
           height: "100%",
           position: "relative",
