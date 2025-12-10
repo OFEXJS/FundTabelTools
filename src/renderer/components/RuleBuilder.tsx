@@ -263,7 +263,7 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
     // 按顺序处理每个规则，确保逐层处理
     rules.forEach((rule, index) => {
       if (!rule.sheetName) return;
-
+      
       const ref: any = {
         type: rule.type,
         sheetName: rule.sheetName,
@@ -366,8 +366,13 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
                       }
                       onChange={(v) => {
                         const [fileId, sheetName] = (v as string).split("|");
-                        updateRule(rule.key, "fileId", fileId);
-                        updateRule(rule.key, "sheetName", sheetName);
+                        // 同时更新 fileId 和 sheetName，避免多次状态更新
+                        setRules(rules.map((r) => {
+                          if (r.key === rule.key) {
+                            return { ...r, fileId, sheetName };
+                          }
+                          return r;
+                        }));
                       }}
                       placeholder="选择工作表"
                       usedSheets={usedSheets}

@@ -102,10 +102,14 @@ export const evaluateCellRefs = (
     if (ref.type === "custom") return;
     
     const fileData = filesData.get(ref.fileId);
-    if (!fileData) return;
+    if (!fileData) {
+      return;
+    }
     
     const sheet = fileData.sheets.find((s) => s.name === ref.sheetName);
-    if (!sheet || !sheet.data.length) return;
+    if (!sheet || !sheet.data.length) {
+      return;
+    }
     
     const sheetKey = `${ref.fileId}|${ref.sheetName}`;
     if (!originalSheets.has(sheetKey)) {
@@ -123,10 +127,14 @@ export const evaluateCellRefs = (
     }
 
     const fileData = filesData.get(ref.fileId);
-    if (!fileData) return;
+    if (!fileData) {
+      return;
+    }
 
     const sheet = fileData.sheets.find((s) => s.name === ref.sheetName);
-    if (!sheet || !sheet.data.length) return;
+    if (!sheet || !sheet.data.length) {
+      return;
+    }
 
     const sheetKey = `${ref.fileId}|${ref.sheetName}`;
     const logic = ref.logic || "AND"; // 默认 AND
@@ -204,25 +212,19 @@ const calculateFromData = (data: any[][], ref: CellRef): number => {
     const rowIdx = decoded.r;
     const colIdx = decoded.c;
     const cellValue = data[rowIdx]?.[colIdx];
-    console.log(`[单元格] ${ref.ref} -> row:${rowIdx}, col:${colIdx}, 原始值:`, cellValue, '数据行数:', data.length);
     result = parseNumber(cellValue);
-    console.log(`[单元格] ${ref.ref} 解析后结果:`, result);
   } else if (ref.type === "row" && /^\d+$/.test(ref.ref)) {
     const rowIdx = parseInt(ref.ref) - 1;
-    console.log(`[行求和] 行${ref.ref} -> 索引:${rowIdx}, 数据:`, data[rowIdx]);
     data[rowIdx]?.forEach((v) => (result += parseNumber(v)));
-    console.log(`[行求和] 行${ref.ref} 结果:`, result);
   } else if (ref.type === "column" && ref.ref.match(/^[A-Z]+$/i)) {
     const colIdx = XLSX.utils.decode_col(ref.ref.toUpperCase());
     const start = (ref.startRow ?? 1) - 1;
     let end = ref.endRow ? ref.endRow - 1 : findLastNonEmptyRow(data, colIdx);
 
-    console.log(`[列求和] 列${ref.ref} -> 列索引:${colIdx}, 范围:${start}-${end}, 数据行数:${data.length}`);
     // 列求和：遍历筛选后数据的指定列范围
     for (let r = start; r <= end; r++) {
       result += parseNumber(data[r]?.[colIdx]);
     }
-    console.log(`[列求和] 列${ref.ref} 结果:`, result);
   }
   
   return result;
