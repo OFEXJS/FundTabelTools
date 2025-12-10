@@ -245,6 +245,7 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
                       value={rule.logic}
                       onChange={(v) => updateRule(rule.key, "logic", v)}
                       size="small"
+                      style={{ width: 74 }}
                     >
                       <Option value="AND">AND</Option>
                       <Option value="OR">OR</Option>
@@ -307,7 +308,7 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
                       }
                       value={rule.ref}
                       onChange={(e) =>
-                        updateRule(rule.key, "ref", e.target.value)
+                        updateRule(rule.key, "ref", e.target.value.toUpperCase())
                       }
                       style={{ width: 100 }}
                     />
@@ -343,6 +344,7 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
                       <InputNumber
                         min={1}
                         placeholder="结束行（留空=最后）"
+                        title="留空=最后"
                         value={rule.endRow}
                         onChange={(v) =>
                           updateRule(rule.key, "endRow", v as number)
@@ -447,7 +449,7 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
                                   })
                                 );
                               }}
-                              style={{ width: 80 }}
+                              style={{ width: 100 }}
                             />
                             <Input
                               placeholder="关键字"
