@@ -93,9 +93,7 @@ export const evaluateCellRefs = (
 ): number => {
   let total = 0;
 
-  // 为每个工作表维护两个状态：
-  // 1. originalData - 原始数据（用于 OR 规则）
-  // 2. andChainData - AND 链的累积处理结果
+  // 为每个工作表维护原始数据和 AND 链处理结果
   const originalSheets = new Map<string, any[][]>();
   const andChainSheets = new Map<string, any[][]>();
   
@@ -118,6 +116,7 @@ export const evaluateCellRefs = (
 
   // 逐层处理每个规则
   refs.forEach((ref, index) => {
+    // 自定义值直接累加
     if (ref.type === "custom") {
       total += ref.value || 0;
       return;
@@ -140,51 +139,93 @@ export const evaluateCellRefs = (
     );
     
     let currentData: any[][];
+    let ruleResult = 0;
     
-    // 根据逻辑关系选择数据源
+    // 确保工作表数据已初始化（处理动态添加的表）
+    if (!originalSheets.has(sheetKey)) {
+      originalSheets.set(sheetKey, [...sheet.data]);
+      andChainSheets.set(sheetKey, [...sheet.data]);
+    }
+    
+    // 根据逻辑关系选择数据源和处理方式
     if (index === 0 || logic === "OR") {
-      // 第一个规则或 OR 规则：从原始数据开始
-      currentData = [...(originalSheets.get(sheetKey) || sheet.data)];
+      // 第一个规则或 OR 规则：从原始数据开始计算，结果累加到 total
+      currentData = [...originalSheets.get(sheetKey)!];
       
-      // 应用当前规则的筛选条件
-      if (currentRuleExcludes.length > 0) {
+      // 对于列求和类型：先筛选再计算
+      // 对于单元格/行类型：直接从原始数据计算（不受筛选影响）
+      if (ref.type === "column" && currentRuleExcludes.length > 0) {
         currentData = filterRowsByExcludesWithLogic(currentData, currentRuleExcludes);
       }
       
-      // OR 规则处理后，重置 AND 链为当前结果
-      andChainSheets.set(sheetKey, currentData);
+      // 计算当前规则的结果并累加
+      ruleResult = calculateFromData(currentData, ref);
+      total += ruleResult;
+      
+      // OR 规则：重置 AND 链为当前处理后的数据（为后续可能的 AND 规则准备）
+      if (logic === "OR") {
+        // 如果是列求和且有筛选，保存筛选后的数据；否则保存原始数据
+        const dataToSave = (ref.type === "column" && currentRuleExcludes.length > 0) 
+          ? currentData 
+          : [...originalSheets.get(sheetKey)!];
+        andChainSheets.set(sheetKey, dataToSave);
+      }
     } else {
       // AND 规则：从上一个 AND 链的结果继续处理
-      currentData = [...(andChainSheets.get(sheetKey) || sheet.data)];
+      currentData = [...andChainSheets.get(sheetKey)!];
       
-      // 应用当前规则的筛选条件（逐层累积）
-      if (currentRuleExcludes.length > 0) {
+      // 对于列求和类型：应用筛选条件（逐层累积）
+      // 对于单元格/行类型：直接从当前数据计算
+      if (ref.type === "column" && currentRuleExcludes.length > 0) {
         currentData = filterRowsByExcludesWithLogic(currentData, currentRuleExcludes);
       }
       
       // 更新 AND 链的结果
-      andChainSheets.set(sheetKey, currentData);
-    }
-
-    // 基于当前数据计算
-    if (ref.type === "cell" && ref.ref.match(/^[A-Z]+\d+$/i)) {
-      const { row, col } = XLSX.utils.decode_cell(ref.ref.toUpperCase());
-      total += parseNumber(currentData[row]?.[col]);
-    } else if (ref.type === "row" && /^\d+$/.test(ref.ref)) {
-      const rowIdx = parseInt(ref.ref) - 1;
-      currentData[rowIdx]?.forEach((v) => (total += parseNumber(v)));
-    } else if (ref.type === "column" && ref.ref.match(/^[A-Z]+$/i)) {
-      const colIdx = XLSX.utils.decode_col(ref.ref.toUpperCase());
-      const start = (ref.startRow ?? 1) - 1;
-      let end = ref.endRow ? ref.endRow - 1 : findLastNonEmptyRow(currentData, colIdx);
-
-      for (let r = start; r <= end; r++) {
-        total += parseNumber(currentData[r]?.[colIdx]);
+      if (ref.type === "column" && currentRuleExcludes.length > 0) {
+        andChainSheets.set(sheetKey, currentData);
       }
+      
+      // 计算当前规则的结果并累加
+      ruleResult = calculateFromData(currentData, ref);
+      total += ruleResult;
     }
   });
 
   return total;
+};
+
+// 新增：从数据中计算结果的辅助函数
+const calculateFromData = (data: any[][], ref: CellRef): number => {
+  let result = 0;
+  
+  if (ref.type === "cell" && ref.ref.match(/^[A-Z]+\d+$/i)) {
+    // 注意：XLSX.utils.decode_cell 返回的是 {r: row, c: col}，不是 {row, col}
+    const decoded = XLSX.utils.decode_cell(ref.ref.toUpperCase());
+    const rowIdx = decoded.r;
+    const colIdx = decoded.c;
+    const cellValue = data[rowIdx]?.[colIdx];
+    console.log(`[单元格] ${ref.ref} -> row:${rowIdx}, col:${colIdx}, 原始值:`, cellValue, '数据行数:', data.length);
+    result = parseNumber(cellValue);
+    console.log(`[单元格] ${ref.ref} 解析后结果:`, result);
+  } else if (ref.type === "row" && /^\d+$/.test(ref.ref)) {
+    const rowIdx = parseInt(ref.ref) - 1;
+    console.log(`[行求和] 行${ref.ref} -> 索引:${rowIdx}, 数据:`, data[rowIdx]);
+    data[rowIdx]?.forEach((v) => (result += parseNumber(v)));
+    console.log(`[行求和] 行${ref.ref} 结果:`, result);
+  } else if (ref.type === "column" && ref.ref.match(/^[A-Z]+$/i)) {
+    const colIdx = XLSX.utils.decode_col(ref.ref.toUpperCase());
+    const start = (ref.startRow ?? 1) - 1;
+    let end = ref.endRow ? ref.endRow - 1 : findLastNonEmptyRow(data, colIdx);
+
+    console.log(`[列求和] 列${ref.ref} -> 列索引:${colIdx}, 范围:${start}-${end}, 数据行数:${data.length}`);
+    // 列求和：遍历筛选后数据的指定列范围
+    for (let r = start; r <= end; r++) {
+      result += parseNumber(data[r]?.[colIdx]);
+    }
+    console.log(`[列求和] 列${ref.ref} 结果:`, result);
+  }
+  
+  return result;
 };
 
 // 排除/筛选行（支持 AND/OR 逻辑组合）

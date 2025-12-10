@@ -93,23 +93,37 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
   onCalculate,
 }) => {
   const [rules, setRules] = useState<RuleItem[]>([]);
+  const rulesContainerRef = React.useRef<HTMLDivElement>(null);
 
   const { styles } = useStyle();
 
   const addRule = () => {
-    setRules([
-      ...rules,
-      {
-        key: Date.now().toString(),
-        logic: rules.length === 0 ? "AND" : "AND",
-        fileId: currentFileId || "",
-        sheetName: "",
-        type: "cell",
-        ref: "",
-        enableExclude: false,
-        excludeConditions: [],
-      },
-    ]);
+    const newRule: RuleItem = {
+      key: Date.now().toString(),
+      logic: rules.length === 0 ? "AND" : "AND",
+      fileId: currentFileId || "",
+      sheetName: "",
+      type: "cell",
+      ref: "",
+      enableExclude: false,
+      excludeConditions: [],
+    };
+    
+    // 如果不是第一个规则且是 AND 逻辑，继承上一个规则的表信息
+    if (rules.length > 0 && newRule.logic === "AND") {
+      const lastRule = rules[rules.length - 1];
+      newRule.fileId = lastRule.fileId;
+      newRule.sheetName = lastRule.sheetName;
+    }
+    
+    setRules([...rules, newRule]);
+    
+    // 滚动到底部
+    setTimeout(() => {
+      if (rulesContainerRef.current) {
+        rulesContainerRef.current.scrollTop = rulesContainerRef.current.scrollHeight;
+      }
+    }, 100);
   };
 
   const removeRule = (key: string) => {
@@ -127,7 +141,31 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
     field: keyof RuleItem | `excludeConditions`,
     value: any
   ) => {
-    setRules(rules.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
+    setRules(rules.map((r) => {
+      if (r.key === key) {
+        const updated = { ...r, [field]: value };
+        
+        // 当切换逻辑关系时，处理表选择和筛选条件
+        if (field === "logic") {
+          const ruleIndex = rules.findIndex(ru => ru.key === key);
+          if (value === "AND" && ruleIndex > 0) {
+            // 切换到 AND：继承上一个规则的表，清空筛选条件
+            const prevRule = rules[ruleIndex - 1];
+            updated.fileId = prevRule.fileId;
+            updated.sheetName = prevRule.sheetName;
+            updated.enableExclude = false;
+            updated.excludeConditions = [];
+          } else if (value === "OR") {
+            // 切换到 OR：可以选择新表，清空筛选条件
+            updated.enableExclude = false;
+            updated.excludeConditions = [];
+          }
+        }
+        
+        return updated;
+      }
+      return r;
+    }));
   };
 
   // 计算当前所有规则中已使用的工作表（fileId|sheetName）
@@ -276,7 +314,10 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
 
   return (
     <Space orientation="vertical" size="large" style={{ width: "100%" }}>
-      <div style={{ overflow: "auto", width: "100%", maxHeight: "38vh" }}>
+      <div 
+        ref={rulesContainerRef}
+        style={{ overflow: "auto", width: "100%", maxHeight: "38vh" }}
+      >
         <Space orientation="vertical" style={{ width: "100%" }}>
           {rules.map((rule, index) => (
             <Card
@@ -314,21 +355,28 @@ const RuleBuilder: React.FC<RuleBuilderProps> = ({
               >
                 {/* 主规则区域 */}
                 <Space wrap>
-                  <ExcelTree
-                    filesData={filesData}
-                    value={
-                      rule.fileId && rule.sheetName
-                        ? `${rule.fileId}|${rule.sheetName}`
-                        : undefined
-                    }
-                    onChange={(v) => {
-                      const [fileId, sheetName] = (v as string).split("|");
-                      updateRule(rule.key, "fileId", fileId);
-                      updateRule(rule.key, "sheetName", sheetName);
-                    }}
-                    placeholder="选择工作表"
-                    usedSheets={usedSheets}
-                  />
+                  {/* AND 规则不显示表选择器 */}
+                  {(index === 0 || rule.logic === "OR") ? (
+                    <ExcelTree
+                      filesData={filesData}
+                      value={
+                        rule.fileId && rule.sheetName
+                          ? `${rule.fileId}|${rule.sheetName}`
+                          : undefined
+                      }
+                      onChange={(v) => {
+                        const [fileId, sheetName] = (v as string).split("|");
+                        updateRule(rule.key, "fileId", fileId);
+                        updateRule(rule.key, "sheetName", sheetName);
+                      }}
+                      placeholder="选择工作表"
+                      usedSheets={usedSheets}
+                    />
+                  ) : (
+                    <Tag color="purple" style={{ padding: "4px 12px" }}>
+                      继续处理上一规则的数据
+                    </Tag>
+                  )}
 
                   <Select
                     value={rule.type}
