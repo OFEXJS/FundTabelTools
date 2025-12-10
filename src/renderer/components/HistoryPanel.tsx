@@ -103,7 +103,7 @@ const HistoryPanel: React.FC<HistoryPanelProps> = ({ collapsed, onToggle }) => {
           ) : (
             <Timeline style={{ marginTop: 16 }}>
               {history?.map((item, i) => {
-                const value = `${item.sheetName}：${item.result}`;
+                const value = `${item.sheetName}：${item.result.toLocaleString()}`;
                 return (
                   <Timeline.Item key={i} color="green">
                     <div
