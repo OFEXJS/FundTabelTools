@@ -47,7 +47,6 @@ function getIconPath() {
           ? "icon.icns"
           : "icon.png";
     const iconPath = path.join(process.cwd(), "public", "icons", iconExt);
-    console.log("开发环境图标路径:", iconPath);
     return iconPath;
   } else {
     // 生产环境
@@ -61,7 +60,6 @@ function getIconPath() {
       ];
       for (const iconPath of possiblePaths) {
         if (fs.existsSync(iconPath)) {
-          console.log("找到图标路径:", iconPath);
           return iconPath;
         }
       }
@@ -118,7 +116,6 @@ const createWindow = () => {
 
   mainWindow.on("close", (event) => {
     const isQuitting = (app as any).isQuitting;
-    console.log("窗口关闭事件，isQuitting:", isQuitting);
     if (!isQuitting) {
       // 自定义标志，防止右键退出时被拦截
       event.preventDefault();
@@ -186,7 +183,6 @@ function createTray() {
         });
         
         trayIconPath = possiblePaths.find((p) => fs.existsSync(p)) || possiblePaths[0];
-        console.log("托盘图标路径:", trayIconPath, "存在:", fs.existsSync(trayIconPath));
       }
     } else {
       // 其他平台使用通用路径
@@ -198,19 +194,14 @@ function createTray() {
       ? trayIconPath 
       : path.resolve(trayIconPath);
     
-    console.log("托盘图标路径 (原始):", trayIconPath);
-    console.log("托盘图标路径 (绝对):", absoluteTrayIconPath);
-    
     // 验证图标文件是否存在
     if (!fs.existsSync(absoluteTrayIconPath)) {
       console.error("托盘图标文件不存在:", absoluteTrayIconPath);
       // 如果是 macOS 且 ICNS 失败，尝试 PNG
       if (process.platform === "darwin" && absoluteTrayIconPath.endsWith(".icns")) {
         const pngFallback = absoluteTrayIconPath.replace(/\.icns$/, ".png");
-        console.log("尝试 PNG 后备路径:", pngFallback);
         if (fs.existsSync(pngFallback)) {
           const absolutePngPath = path.resolve(pngFallback);
-          console.log("使用 PNG 后备图标:", absolutePngPath);
           loadTrayIcon(absolutePngPath);
           return;
         }
@@ -232,18 +223,13 @@ function loadTrayIcon(iconPath: string): void {
     // 创建托盘图标，Windows平台不需要额外调整大小，系统会自动处理
     // 尝试多种方式加载图标
     let icon = nativeImage.createFromPath(iconPath);
-    console.log("第一次加载图标结果 - 是否为空:", icon.isEmpty(), "尺寸:", icon.isEmpty() ? "N/A" : icon.getSize());
     
     // 如果直接加载失败，尝试从文件系统读取为 Buffer
     if (icon.isEmpty()) {
       try {
-        console.log("尝试使用 Buffer 方式加载图标");
         const iconBuffer = fs.readFileSync(iconPath);
-        console.log("读取文件成功，大小:", iconBuffer.length, "字节");
         icon = nativeImage.createFromBuffer(iconBuffer);
-        console.log("Buffer 方式加载结果 - 是否为空:", icon.isEmpty(), "尺寸:", icon.isEmpty() ? "N/A" : icon.getSize());
       } catch (bufferError) {
-        console.error("Buffer 方式加载失败:", bufferError);
         if (bufferError instanceof Error) {
           console.error("错误详情:", bufferError.message);
         }
@@ -253,15 +239,12 @@ function loadTrayIcon(iconPath: string): void {
     // 如果还是失败且是 ICNS，尝试 PNG
     if (icon.isEmpty() && iconPath.endsWith(".icns")) {
       const pngPath = iconPath.replace(/\.icns$/, ".png");
-      console.log("ICNS 加载失败，尝试 PNG 后备:", pngPath);
       if (fs.existsSync(pngPath)) {
-        console.log("找到 PNG 后备文件，尝试加载");
         icon = nativeImage.createFromPath(pngPath);
         if (icon.isEmpty()) {
           try {
             const pngBuffer = fs.readFileSync(pngPath);
             icon = nativeImage.createFromBuffer(pngBuffer);
-            console.log("PNG Buffer 方式加载结果 - 是否为空:", icon.isEmpty());
           } catch (e) {
             console.error("PNG 后备也加载失败:", e);
           }
@@ -282,8 +265,6 @@ function loadTrayIcon(iconPath: string): void {
       }
       throw new Error(`无法加载图标: ${iconPath}`);
     }
-    
-    console.log("图标加载成功，尺寸:", icon.getSize());
 
     // Windows平台下，确保图标尺寸适合托盘
     if (process.platform === "win32") {
@@ -293,7 +274,6 @@ function loadTrayIcon(iconPath: string): void {
       // macOS 使用 22x22 或 16x16，系统会自动调整
       tray = new Tray(icon.resize({ width: 22, height: 22 }));
     }
-    console.log("托盘图标创建成功");
   } catch (error) {
     console.error("loadTrayIcon 内部错误:", error);
     throw error; // 重新抛出错误，让外层 catch 处理
@@ -314,12 +294,10 @@ function loadTrayIcon(iconPath: string): void {
     {
       label: "退出应用",
       click: () => {
-        console.log("用户点击退出应用");
         // 设置标志，允许真正关闭
         (app as any).isQuitting = true;
         // 关闭所有窗口
         const windows = BrowserWindow.getAllWindows();
-        console.log("关闭窗口数量:", windows.length);
         windows.forEach((win) => {
           win.destroy();
         });
@@ -352,19 +330,12 @@ function loadTrayIcon(iconPath: string): void {
 
 // 添加 before-quit 事件处理（在 ready 之前注册，只注册一次）
 app.on("before-quit", (event) => {
-  console.log("before-quit 事件触发");
   (app as any).isQuitting = true;
 });
 
 // 设置 macOS Dock 图标的辅助函数
 function setDockIcon() {
   if (process.platform !== "darwin") return;
-  
-  console.log("开始设置 Dock 图标...");
-  console.log("app.isPackaged:", app.isPackaged);
-  console.log("process.resourcesPath:", process.resourcesPath);
-  console.log("app.getAppPath():", app.getAppPath());
-  console.log("process.execPath:", process.execPath);
   
   let dockIconPath: string | null = null;
   
@@ -373,7 +344,6 @@ function setDockIcon() {
     const pngPath = path.join(process.cwd(), "public", "icons", "icon.png");
     const icnsPath = path.join(process.cwd(), "public", "icons", "icon.icns");
     dockIconPath = fs.existsSync(pngPath) ? pngPath : icnsPath;
-    console.log("开发环境图标路径:", dockIconPath, "存在:", fs.existsSync(dockIconPath));
   } else {
     // 生产环境 - 尝试多个可能的路径
     const appPath = app.getAppPath();
@@ -394,12 +364,9 @@ function setDockIcon() {
       path.join(process.resourcesPath, "..", "icon.icns"),
     ];
     
-    console.log("尝试查找图标路径:");
     for (const iconPath of possiblePaths) {
-      console.log("  检查:", iconPath, "存在:", fs.existsSync(iconPath));
       if (fs.existsSync(iconPath)) {
         dockIconPath = iconPath;
-        console.log("找到图标路径:", dockIconPath);
         break;
       }
     }
@@ -424,22 +391,17 @@ function setDockIcon() {
     if (dockIconPath.endsWith(".icns")) {
       const pngPath = dockIconPath.replace(/\.icns$/, ".png");
       if (fs.existsSync(pngPath)) {
-        console.log("检测到 ICNS 文件，优先尝试 PNG:", pngPath);
         dockIconPathToUse = pngPath;
       }
     }
     
     let dockIcon = nativeImage.createFromPath(dockIconPathToUse);
-    console.log("第一次加载 Dock 图标结果 - 是否为空:", dockIcon.isEmpty(), "路径:", dockIconPathToUse);
     
     // 如果直接加载失败，尝试从文件系统读取为 Buffer
     if (dockIcon.isEmpty()) {
       try {
-        console.log("尝试使用 Buffer 方式加载 Dock 图标");
         const iconBuffer = fs.readFileSync(dockIconPathToUse);
-        console.log("读取文件成功，大小:", iconBuffer.length, "字节");
         dockIcon = nativeImage.createFromBuffer(iconBuffer);
-        console.log("Buffer 方式加载结果 - 是否为空:", dockIcon.isEmpty());
       } catch (bufferError) {
         console.error("Buffer 方式加载 Dock 图标失败:", bufferError);
       }
@@ -448,15 +410,12 @@ function setDockIcon() {
     // 如果还是失败且是 ICNS，尝试 PNG 后备
     if (dockIcon.isEmpty() && dockIconPathToUse.endsWith(".icns")) {
       const pngPath = dockIconPathToUse.replace(/\.icns$/, ".png");
-      console.log("ICNS 加载失败，尝试 PNG 后备:", pngPath);
       if (fs.existsSync(pngPath)) {
-        console.log("找到 PNG 后备文件，尝试加载");
         dockIcon = nativeImage.createFromPath(pngPath);
         if (dockIcon.isEmpty()) {
           try {
             const pngBuffer = fs.readFileSync(pngPath);
             dockIcon = nativeImage.createFromBuffer(pngBuffer);
-            console.log("PNG Buffer 方式加载结果 - 是否为空:", dockIcon.isEmpty());
           } catch (e) {
             console.error("PNG 后备也加载失败:", e);
           }
@@ -488,9 +447,6 @@ function setDockIcon() {
     
     // 设置 Dock 图标
     app.dock.setIcon(dockIcon);
-    console.log("✓ Dock 图标设置成功");
-    console.log("使用的图标路径:", dockIconPathToUse);
-    console.log("图标尺寸:", dockIcon.getSize());
   } catch (error) {
     console.error("设置 Dock 图标时出错:", error);
     if (error instanceof Error) {
